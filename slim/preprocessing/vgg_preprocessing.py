@@ -73,7 +73,7 @@ def _crop(image, offset_height, offset_width, crop_height, crop_width):
       ['Rank of image must be equal to 3.'])
   cropped_shape = control_flow_ops.with_dependencies(
       [rank_assertion],
-      tf.pack([crop_height, crop_width, original_shape[2]]))
+      tf.stack([crop_height, crop_width, original_shape[2]]))
 
   size_assertion = tf.Assert(
       tf.logical_and(
@@ -81,7 +81,7 @@ def _crop(image, offset_height, offset_width, crop_height, crop_width):
           tf.greater_equal(original_shape[1], crop_width)),
       ['Crop size greater than the image size.'])
 
-  offsets = tf.to_int32(tf.pack([offset_height, offset_width, 0]))
+  offsets = tf.cast(tf.stack([offset_height, offset_width, 0]),dtype=tf.int32)
 
   # Use tf.slice instead of crop_to_bounding box as it accepts tensors to
   # define the crop size.
@@ -226,11 +226,11 @@ def _mean_image_subtraction(image, means):
   num_channels = image.get_shape().as_list()[-1]
   if len(means) != num_channels:
     raise ValueError('len(means) must match the number of channels')
+  channels = tf.split(image, num_channels, 2)
 
-  channels = tf.split(2, num_channels, image)
   for i in range(num_channels):
     channels[i] -= means[i]
-  return tf.concat(2, channels)
+  return tf.concat(channels,2)
 
 
 def _smallest_size_at_least(height, width, smallest_side):
@@ -251,9 +251,9 @@ def _smallest_size_at_least(height, width, smallest_side):
   """
   smallest_side = tf.convert_to_tensor(smallest_side, dtype=tf.int32)
 
-  height = tf.to_float(height)
-  width = tf.to_float(width)
-  smallest_side = tf.to_float(smallest_side)
+  height = tf.cast(height,dtype=tf.float32 )
+  width = tf.cast(width,dtype=tf.float32)
+  smallest_side = tf.cast(smallest_side,dtype=tf.float32)
 
   scale = tf.cond(tf.greater(height, width),
                   lambda: smallest_side / width,
@@ -316,7 +316,7 @@ def preprocess_for_train(image,
   image = _aspect_preserving_resize(image, resize_side)
   image = _random_crop([image], output_height, output_width)[0]
   image.set_shape([output_height, output_width, 3])
-  image = tf.to_float(image)
+  image = tf.cast(image, dtype=tf.float32)
   image = tf.image.random_flip_left_right(image)
   return _mean_image_subtraction(image, [_R_MEAN, _G_MEAN, _B_MEAN])
 
@@ -336,7 +336,7 @@ def preprocess_for_eval(image, output_height, output_width, resize_side):
   image = _aspect_preserving_resize(image, resize_side)
   image = _central_crop([image], output_height, output_width)[0]
   image.set_shape([output_height, output_width, 3])
-  image = tf.to_float(image)
+  image = tf.cast(image,dtype=tf.float32)
   return _mean_image_subtraction(image, [_R_MEAN, _G_MEAN, _B_MEAN])
 
 
